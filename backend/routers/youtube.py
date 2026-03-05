@@ -55,38 +55,40 @@ def get_subscriptions(user_id: int = Depends(get_current_user), category: str = 
     if not cur.fetchone():
         raise HTTPException(status_code=404, detail="User not found")
 
-    # H-2: N+1 해소 — JOIN으로 단일 쿼리 처리
+    # 3일 이내 영상만 표시
+    cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=3)).isoformat()
+
+    video_subquery = """
+        SELECT subscription_id, video_id, title, published_at, thumbnail_url, ai_summary,
+               ROW_NUMBER() OVER (PARTITION BY subscription_id ORDER BY published_at DESC) AS rn
+        FROM videos
+        WHERE published_at >= ?
+    """
+
     if category == "all":
         cur.execute(
-            """
+            f"""
             SELECT s.id, s.channel_id, s.channel_title, s.thumbnail_url, s.category,
                    v.video_id, v.title, v.published_at, v.thumbnail_url, v.ai_summary
             FROM subscriptions s
-            LEFT JOIN (
-                SELECT subscription_id, video_id, title, published_at, thumbnail_url, ai_summary,
-                       ROW_NUMBER() OVER (PARTITION BY subscription_id ORDER BY published_at DESC) AS rn
-                FROM videos
-            ) v ON v.subscription_id = s.id AND v.rn <= 5
+            LEFT JOIN ({video_subquery}) v ON v.subscription_id = s.id AND v.rn <= 5
             WHERE s.user_id = ?
             ORDER BY s.category, s.channel_title, v.published_at DESC
             """,
-            (user_id,),
+            (cutoff, user_id),
         )
     else:
+        # 부모 카테고리 prefix 매칭 지원 (예: "IT/Tech" → "IT/Tech > AI" 포함)
         cur.execute(
-            """
+            f"""
             SELECT s.id, s.channel_id, s.channel_title, s.thumbnail_url, s.category,
                    v.video_id, v.title, v.published_at, v.thumbnail_url, v.ai_summary
             FROM subscriptions s
-            LEFT JOIN (
-                SELECT subscription_id, video_id, title, published_at, thumbnail_url, ai_summary,
-                       ROW_NUMBER() OVER (PARTITION BY subscription_id ORDER BY published_at DESC) AS rn
-                FROM videos
-            ) v ON v.subscription_id = s.id AND v.rn <= 5
-            WHERE s.user_id = ? AND s.category = ?
+            LEFT JOIN ({video_subquery}) v ON v.subscription_id = s.id AND v.rn <= 5
+            WHERE s.user_id = ? AND (s.category = ? OR s.category LIKE ?)
             ORDER BY s.channel_title, v.published_at DESC
             """,
-            (user_id, category),
+            (cutoff, user_id, category, f"{category} > %"),
         )
 
     rows = cur.fetchall()
@@ -140,19 +142,11 @@ def sync_subscriptions(user_id: int = Depends(get_current_user), db=Depends(data
         return {"status": "success", "message": "No subscriptions found.", "synced_count": 0}
 
     try:
-        categorized_json = categorize_channels(subs)
-        if "```json" in categorized_json:
-            categorized_json = categorized_json.split("```json")[1].split("```")[0].strip()
-        elif "```" in categorized_json:
-            categorized_json = categorized_json.replace("```", "").strip()
-        categories = json.loads(categorized_json)
-        cat_map = {
-            item.get("channel_title"): item.get("category", "Uncategorized")
-            for item in categories
-            if "channel_title" in item
-        }
+        # channel_id -> category 딕셔너리 직접 반환
+        cat_map = categorize_channels(subs)
+        logger.info("Gemini 카테고리 매핑 완료: %d개", len(cat_map))
     except Exception as e:
-        logger.error("Gemini 응답 파싱 오류: %s", e)
+        logger.error("Gemini 카테고리 분류 오류: %s", e)
         cat_map = {}
 
     for sub in subs:
@@ -161,7 +155,7 @@ def sync_subscriptions(user_id: int = Depends(get_current_user), db=Depends(data
             (u_id, sub["channel_id"]),
         )
         existing = cur.fetchone()
-        new_category = cat_map.get(sub["title"])
+        new_category = cat_map.get(sub["channel_id"])
 
         if existing:
             sub_id, current_category = existing[0], existing[1]
@@ -185,7 +179,36 @@ def sync_subscriptions(user_id: int = Depends(get_current_user), db=Depends(data
             )
 
     db.commit()
-    return {"status": "success", "synced_count": len(subs)}
+
+    # 각 채널의 최근 3일 영상 저장 (playlistItems.list — 1 unit/채널)
+    synced_videos = 0
+    for sub in subs:
+        cur.execute(
+            "SELECT id FROM subscriptions WHERE user_id = ? AND channel_id = ?",
+            (u_id, sub["channel_id"]),
+        )
+        sub_row = cur.fetchone()
+        if not sub_row:
+            continue
+        sub_id = sub_row[0]
+        try:
+            videos = youtube_service.get_recent_videos_for_channel(sub["channel_id"], days=3)
+            for v in videos:
+                cur.execute("SELECT id FROM videos WHERE video_id = ?", (v["video_id"],))
+                if not cur.fetchone():
+                    cur.execute(
+                        """
+                        INSERT INTO videos (subscription_id, video_id, title, description, published_at, thumbnail_url)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (sub_id, v["video_id"], v["title"], v["description"], v["published_at"], v["thumbnail_url"]),
+                    )
+                    synced_videos += 1
+        except Exception as e:
+            logger.warning("채널 %s 영상 조회 실패: %s", sub["channel_id"], e)
+
+    db.commit()
+    return {"status": "success", "synced_count": len(subs), "synced_videos": synced_videos}
 
 
 @router.post("/summarize-recent")

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Image from "next/image";
 import { signIn, signOut, useSession } from "next-auth/react";
-import { Youtube, LogOut, LayoutDashboard, VideoIcon, RefreshCw, AlertCircle } from "lucide-react";
+import { Youtube, LogOut, LayoutDashboard, VideoIcon, RefreshCw, AlertCircle, ChevronRight } from "lucide-react";
 
 interface Video {
   video_id: string;
@@ -32,6 +32,33 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isLoadingSubs, setIsLoadingSubs] = useState(false);
+  const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
+
+  // 카테고리 문자열 → 계층 트리: { parent: [fullCategory, ...] }
+  const hierarchy = useMemo(() => {
+    const tree: Record<string, string[]> = {};
+    for (const cat of categories) {
+      const sepIdx = cat.indexOf(" > ");
+      if (sepIdx !== -1) {
+        const parent = cat.substring(0, sepIdx);
+        if (!tree[parent]) tree[parent] = [];
+        tree[parent].push(cat);
+      } else {
+        if (!tree[cat]) tree[cat] = [];
+      }
+    }
+    return tree;
+  }, [categories]);
+
+  // 카테고리 로드 시 모든 부모 자동 펼치기
+  useEffect(() => {
+    const parents = new Set<string>();
+    for (const cat of categories) {
+      const sepIdx = cat.indexOf(" > ");
+      if (sepIdx !== -1) parents.add(cat.substring(0, sepIdx));
+    }
+    setExpandedParents(parents);
+  }, [categories]);
 
   // H-3: useCallback으로 메모이제이션 — C-1 수정: Bearer 헤더 불필요 (프록시 경유)
   const apiFetch = useCallback(async (path: string, options?: RequestInit) => {
@@ -68,7 +95,7 @@ export default function Home() {
     try {
       const data = await apiFetch("/api/youtube/sync-subscriptions", { method: "POST" });
       if (data.status === "success") {
-        setSyncMessage(`${data.synced_count}개 채널 동기화 완료!`);
+        setSyncMessage(`${data.synced_count}개 채널, ${data.synced_videos ?? 0}개 영상 동기화 완료!`);
         await fetchCategories();
         setSelectedCategory("all");
       } else {
@@ -188,11 +215,11 @@ export default function Home() {
                 <LayoutDashboard className="w-5 h-5 text-primary" />
                 카테고리
               </h2>
-              <ul className="space-y-1">
+              <ul className="space-y-0.5 max-h-[800px] overflow-y-auto pr-1">
                 <li>
                   <button
                     onClick={() => setSelectedCategory("all")}
-                    className={`w-full text-left px-3 py-2 rounded-md font-medium transition-colors ${
+                    className={`w-full text-left px-3 py-2 rounded-md font-medium text-sm transition-colors ${
                       selectedCategory === "all"
                         ? "bg-primary/10 text-primary"
                         : "text-muted-foreground hover:bg-muted"
@@ -206,20 +233,81 @@ export default function Home() {
                     동기화 후 카테고리가 표시됩니다.
                   </li>
                 ) : (
-                  categories.map((cat) => (
-                    <li key={cat}>
-                      <button
-                        onClick={() => setSelectedCategory(cat)}
-                        className={`w-full text-left px-3 py-2 rounded-md font-medium transition-colors ${
-                          selectedCategory === cat
-                            ? "bg-primary/10 text-primary"
-                            : "text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {cat}
-                      </button>
-                    </li>
-                  ))
+                  Object.entries(hierarchy).map(([parent, children]) => {
+                    const hasChildren = children.length > 0;
+                    const isExpanded = expandedParents.has(parent);
+
+                    if (!hasChildren) {
+                      // 단독 리프 카테고리
+                      return (
+                        <li key={parent}>
+                          <button
+                            onClick={() => setSelectedCategory(parent)}
+                            className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                              selectedCategory === parent
+                                ? "bg-primary/10 text-primary"
+                                : "text-muted-foreground hover:bg-muted"
+                            }`}
+                          >
+                            {parent}
+                          </button>
+                        </li>
+                      );
+                    }
+
+                    // 부모 + 자식 구조
+                    return (
+                      <li key={parent}>
+                        {/* 부모 헤더: 접기/펼치기 + 전체 필터 */}
+                        <button
+                          onClick={() => {
+                            setExpandedParents((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(parent)) next.delete(parent);
+                              else next.add(parent);
+                              return next;
+                            });
+                            setSelectedCategory(parent);
+                          }}
+                          className={`w-full text-left px-3 py-1.5 rounded-md text-xs font-semibold tracking-wide uppercase transition-colors flex items-center justify-between gap-1 mt-2 ${
+                            selectedCategory === parent
+                              ? "text-primary"
+                              : "text-muted-foreground/60 hover:text-muted-foreground"
+                          }`}
+                        >
+                          <span>{parent}</span>
+                          <ChevronRight
+                            className={`w-3 h-3 flex-shrink-0 transition-transform duration-200 ${
+                              isExpanded ? "rotate-90" : ""
+                            }`}
+                          />
+                        </button>
+
+                        {/* 자식 목록 */}
+                        {isExpanded && (
+                          <ul className="mt-0.5 ml-2 pl-2 border-l border-border space-y-0.5">
+                            {children.map((child) => {
+                              const label = child.split(" > ").slice(1).join(" > ");
+                              return (
+                                <li key={child}>
+                                  <button
+                                    onClick={() => setSelectedCategory(child)}
+                                    className={`w-full text-left px-2 py-1.5 rounded-md text-sm transition-colors ${
+                                      selectedCategory === child
+                                        ? "bg-primary/10 text-primary font-medium"
+                                        : "text-muted-foreground hover:bg-muted"
+                                    }`}
+                                  >
+                                    {label}
+                                  </button>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </li>
+                    );
+                  })
                 )}
               </ul>
 
