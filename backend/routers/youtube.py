@@ -40,11 +40,11 @@ def get_categories(user_id: int = Depends(get_current_user), db=Depends(database
     cur.execute("SELECT id FROM users WHERE id = ?", (user_id,))
     if not cur.fetchone():
         raise HTTPException(status_code=404, detail="User not found")
-    # 3일 이내 영상이 있는 구독의 카테고리만 반환
+    # 3일 이내 영상이 있는 구독의 카테고리 + 채널 수 반환
     cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=3)).isoformat()
     cur.execute(
         """
-        SELECT DISTINCT s.category
+        SELECT s.category, COUNT(*) as cnt
         FROM subscriptions s
         WHERE s.user_id = ?
           AND EXISTS (
@@ -52,12 +52,15 @@ def get_categories(user_id: int = Depends(get_current_user), db=Depends(database
               WHERE v.subscription_id = s.id
                 AND v.published_at >= ?
           )
+        GROUP BY s.category
         ORDER BY s.category
         """,
         (user_id, cutoff),
     )
-    categories = [row[0] for row in cur.fetchall()]
-    return {"categories": categories}
+    rows = cur.fetchall()
+    categories = [row[0] for row in rows]
+    category_counts = {row[0]: row[1] for row in rows}
+    return {"categories": categories, "category_counts": category_counts}
 
 
 @router.get("/subscriptions")

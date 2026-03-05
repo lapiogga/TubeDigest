@@ -29,6 +29,7 @@ export default function Home() {
   const [syncMessage, setSyncMessage] = useState("");
 
   const [categories, setCategories] = useState<string[]>([]);
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isLoadingSubs, setIsLoadingSubs] = useState(false);
@@ -70,6 +71,7 @@ export default function Home() {
   const fetchCategories = useCallback(async () => {
     const data = await apiFetch("/api/youtube/categories");
     setCategories(data.categories ?? []);
+    setCategoryCounts(data.category_counts ?? {});
   }, [apiFetch]);
 
   // 카테고리 목록 조회
@@ -237,19 +239,24 @@ export default function Home() {
                     const hasChildren = children.length > 0;
                     const isExpanded = expandedParents.has(parent);
 
+                    const parentCount = hasChildren
+                      ? children.reduce((sum, c) => sum + (categoryCounts[c] ?? 0), 0)
+                      : (categoryCounts[parent] ?? 0);
+
                     if (!hasChildren) {
                       // 단독 리프 카테고리
                       return (
                         <li key={parent}>
                           <button
                             onClick={() => setSelectedCategory(parent)}
-                            className={`w-full text-left px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                            className={`w-full text-left px-3 py-1 rounded-md text-sm font-medium transition-colors flex items-center justify-between gap-1 ${
                               selectedCategory === parent
                                 ? "bg-primary/10 text-primary"
                                 : "text-muted-foreground hover:bg-muted"
                             }`}
                           >
-                            {parent}
+                            <span>{parent}</span>
+                            <span className="text-xs opacity-60">({parentCount})</span>
                           </button>
                         </li>
                       );
@@ -275,7 +282,10 @@ export default function Home() {
                               : "text-muted-foreground/60 hover:text-muted-foreground"
                           }`}
                         >
-                          <span>{parent}</span>
+                          <span className="flex items-center gap-1">
+                            {parent}
+                            <span className="font-normal opacity-60">({parentCount})</span>
+                          </span>
                           <ChevronRight
                             className={`w-3 h-3 flex-shrink-0 transition-transform duration-200 ${
                               isExpanded ? "rotate-90" : ""
@@ -288,17 +298,19 @@ export default function Home() {
                           <ul className="mt-0.5 ml-2 pl-2 border-l border-border">
                             {children.map((child) => {
                               const label = child.split(" > ").slice(1).join(" > ");
+                              const count = categoryCounts[child] ?? 0;
                               return (
                                 <li key={child}>
                                   <button
                                     onClick={() => setSelectedCategory(child)}
-                                    className={`w-full text-left px-2 py-1 rounded-md text-sm transition-colors ${
+                                    className={`w-full text-left px-2 py-1 rounded-md text-sm transition-colors flex items-center justify-between gap-1 ${
                                       selectedCategory === child
                                         ? "bg-primary/10 text-primary font-medium"
                                         : "text-muted-foreground hover:bg-muted"
                                     }`}
                                   >
-                                    {label}
+                                    <span>{label}</span>
+                                    <span className="text-xs opacity-60">({count})</span>
                                   </button>
                                 </li>
                               );
