@@ -243,6 +243,8 @@ export default function Home() {
                       ? children.reduce((sum, c) => sum + (categoryCounts[c] ?? 0), 0)
                       : (categoryCounts[parent] ?? 0);
 
+                    if (parentCount === 0) return null;
+
                     if (!hasChildren) {
                       // 단독 리프 카테고리
                       return (
