@@ -40,22 +40,16 @@ def get_categories(user_id: int = Depends(get_current_user), db=Depends(database
     cur.execute("SELECT id FROM users WHERE id = ?", (user_id,))
     if not cur.fetchone():
         raise HTTPException(status_code=404, detail="User not found")
-    # 3일 이내 영상이 있는 구독의 카테고리 + 채널 수 반환
-    cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=3)).isoformat()
+    # 구독 채널이 있는 카테고리 + 채널 수 반환 (영상 유무 무관)
     cur.execute(
         """
-        SELECT s.category, COUNT(*) as cnt
-        FROM subscriptions s
-        WHERE s.user_id = ?
-          AND EXISTS (
-              SELECT 1 FROM videos v
-              WHERE v.subscription_id = s.id
-                AND v.published_at >= ?
-          )
-        GROUP BY s.category
-        ORDER BY s.category
+        SELECT category, COUNT(*) as cnt
+        FROM subscriptions
+        WHERE user_id = ?
+        GROUP BY category
+        ORDER BY category
         """,
-        (user_id, cutoff),
+        (user_id,),
     )
     rows = cur.fetchall()
     categories = [row[0] for row in rows]
