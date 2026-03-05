@@ -1,0 +1,45 @@
+# 환경변수 (절대 커밋 금지)
+.env
+.env.*
+!.env.template
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Node.js / Next.js
+node_modules/
+.next/
+out/
+build/
+
+# DB
+*.db
+*.sqlite
+
+# 로그
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# 테스트 임시 파일
+backend/test_sync.py
+backend/test_db.py
+backend/test_turso.py
+
+# 스크린샷
+*.png
+*.jpg
+*.jpeg
