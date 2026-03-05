@@ -215,11 +215,11 @@ export default function Home() {
                 <LayoutDashboard className="w-5 h-5 text-primary" />
                 카테고리
               </h2>
-              <ul className="space-y-0.5 max-h-[800px] overflow-y-auto pr-1">
+              <ul className="max-h-[800px] overflow-y-auto pr-1">
                 <li>
                   <button
                     onClick={() => setSelectedCategory("all")}
-                    className={`w-full text-left px-3 py-2 rounded-md font-medium text-sm transition-colors ${
+                    className={`w-full text-left px-3 py-1 rounded-md font-medium text-sm transition-colors ${
                       selectedCategory === "all"
                         ? "bg-primary/10 text-primary"
                         : "text-muted-foreground hover:bg-muted"
@@ -243,7 +243,7 @@ export default function Home() {
                         <li key={parent}>
                           <button
                             onClick={() => setSelectedCategory(parent)}
-                            className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                            className={`w-full text-left px-3 py-1 rounded-md text-sm font-medium transition-colors ${
                               selectedCategory === parent
                                 ? "bg-primary/10 text-primary"
                                 : "text-muted-foreground hover:bg-muted"
@@ -257,7 +257,7 @@ export default function Home() {
 
                     // 부모 + 자식 구조
                     return (
-                      <li key={parent}>
+                      <li key={parent} className="mt-1">
                         {/* 부모 헤더: 접기/펼치기 + 전체 필터 */}
                         <button
                           onClick={() => {
@@ -269,7 +269,7 @@ export default function Home() {
                             });
                             setSelectedCategory(parent);
                           }}
-                          className={`w-full text-left px-3 py-1.5 rounded-md text-xs font-semibold tracking-wide uppercase transition-colors flex items-center justify-between gap-1 mt-2 ${
+                          className={`w-full text-left px-3 py-0.5 rounded-md text-xs font-semibold tracking-wide uppercase transition-colors flex items-center justify-between gap-1 ${
                             selectedCategory === parent
                               ? "text-primary"
                               : "text-muted-foreground/60 hover:text-muted-foreground"
@@ -285,14 +285,14 @@ export default function Home() {
 
                         {/* 자식 목록 */}
                         {isExpanded && (
-                          <ul className="mt-0.5 ml-2 pl-2 border-l border-border space-y-0.5">
+                          <ul className="mt-0.5 ml-2 pl-2 border-l border-border">
                             {children.map((child) => {
                               const label = child.split(" > ").slice(1).join(" > ");
                               return (
                                 <li key={child}>
                                   <button
                                     onClick={() => setSelectedCategory(child)}
-                                    className={`w-full text-left px-2 py-1.5 rounded-md text-sm transition-colors ${
+                                    className={`w-full text-left px-2 py-1 rounded-md text-sm transition-colors ${
                                       selectedCategory === child
                                         ? "bg-primary/10 text-primary font-medium"
                                         : "text-muted-foreground hover:bg-muted"
@@ -375,8 +375,15 @@ export default function Home() {
                           </div>
                         )}
                         <div>
-                          <p className="font-semibold text-sm">{sub.channel_title}</p>
-                          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                          <a
+                            href={`https://www.youtube.com/channel/${sub.channel_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold text-sm hover:text-primary hover:underline transition-colors"
+                          >
+                            {sub.channel_title}
+                          </a>
+                          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full block w-fit mt-0.5">
                             {sub.category}
                           </span>
                         </div>
