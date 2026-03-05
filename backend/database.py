@@ -95,9 +95,16 @@ def init_db():
                 channel_description TEXT,
                 thumbnail_url TEXT,
                 category TEXT DEFAULT 'Uncategorized',
+                subscribed_at DATETIME,
                 FOREIGN KEY (user_id) REFERENCES users (id)
             )
         """)
+        # 기존 DB 마이그레이션: subscribed_at 컬럼 추가
+        try:
+            cur.execute("ALTER TABLE subscriptions ADD COLUMN subscribed_at DATETIME")
+            con.commit()
+        except Exception:
+            pass  # 이미 존재하는 경우 무시
         cur.execute("""
             CREATE TABLE IF NOT EXISTS videos (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

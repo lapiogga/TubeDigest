@@ -19,6 +19,7 @@ interface Subscription {
   channel_title: string;
   thumbnail_url: string | null;
   category: string;
+  subscribed_at: string | null;
   videos: Video[];
 }
 
@@ -107,6 +108,17 @@ export default function Home() {
       setSyncMessage("서버 연결 오류.");
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleUnsubscribe = async (channelId: string, channelTitle: string) => {
+    if (!confirm(`"${channelTitle}" 구독을 취소하시겠습니까?\n\nYouTube에서도 실제로 구독이 취소됩니다.`)) return;
+    try {
+      await apiFetch(`/api/youtube/subscriptions/${channelId}`, { method: "DELETE" });
+      setSubscriptions((prev) => prev.filter((s) => s.channel_id !== channelId));
+      await fetchCategories();
+    } catch {
+      alert("구독 취소에 실패했습니다. 잠시 후 다시 시도해 주세요.");
     }
   };
 
@@ -381,14 +393,14 @@ export default function Home() {
                             alt={sub.channel_title}
                             width={36}
                             height={36}
-                            className="w-9 h-9 rounded-full border border-border"
+                            className="w-9 h-9 rounded-full border border-border flex-shrink-0"
                           />
                         ) : (
-                          <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center">
+                          <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
                             <Youtube className="w-4 h-4 text-muted-foreground" />
                           </div>
                         )}
-                        <div>
+                        <div className="flex-1 min-w-0">
                           <a
                             href={`https://www.youtube.com/channel/${sub.channel_id}`}
                             target="_blank"
@@ -397,10 +409,23 @@ export default function Home() {
                           >
                             {sub.channel_title}
                           </a>
-                          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full block w-fit mt-0.5">
-                            {sub.category}
-                          </span>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                              {sub.category}
+                            </span>
+                            {sub.subscribed_at && (
+                              <span className="text-xs text-muted-foreground">
+                                구독일: {formatDate(sub.subscribed_at)}
+                              </span>
+                            )}
+                          </div>
                         </div>
+                        <button
+                          onClick={() => handleUnsubscribe(sub.channel_id, sub.channel_title)}
+                          className="flex-shrink-0 text-xs text-destructive border border-destructive/30 hover:bg-destructive hover:text-destructive-foreground px-2.5 py-1 rounded-md transition-colors"
+                        >
+                          구독취소
+                        </button>
                       </div>
 
                       {/* 영상 목록 */}

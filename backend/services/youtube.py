@@ -23,10 +23,27 @@ class YouTubeService:
                     "channel_id": snippet["resourceId"]["channelId"],
                     "title": snippet["title"],
                     "description": snippet["description"],
-                    "thumbnail_url": snippet["thumbnails"]["default"]["url"]
+                    "thumbnail_url": snippet["thumbnails"]["default"]["url"],
+                    "subscribed_at": snippet.get("publishedAt"),
                 })
             request = self.youtube.subscriptions().list_next(request, response)
         return subs
+
+    def unsubscribe_channel(self, channel_id: str) -> bool:
+        """채널 구독 취소. subscriptions.list로 리소스 ID 조회 후 delete."""
+        request = self.youtube.subscriptions().list(
+            part="id",
+            mine=True,
+            forChannelId=channel_id,
+            maxResults=1,
+        )
+        response = request.execute()
+        items = response.get("items", [])
+        if not items:
+            return False
+        subscription_resource_id = items[0]["id"]
+        self.youtube.subscriptions().delete(id=subscription_resource_id).execute()
+        return True
 
     def get_recent_videos_for_channel(self, channel_id: str, days: int = 3):
         """playlistItems.list 사용 (1 unit) — search.list (100 units) 대신 사용"""

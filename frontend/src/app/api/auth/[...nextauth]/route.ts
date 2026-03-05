@@ -15,7 +15,7 @@ const handler = NextAuth({
             clientSecret,
             authorization: {
                 params: {
-                    scope: "openid email profile https://www.googleapis.com/auth/youtube.readonly",
+                    scope: "openid email profile https://www.googleapis.com/auth/youtube",
                     prompt: "consent",
                     access_type: "offline",
                     response_type: "code",

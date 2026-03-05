@@ -78,7 +78,8 @@ def get_subscriptions(user_id: int = Depends(get_current_user), category: str = 
         cur.execute(
             f"""
             SELECT s.id, s.channel_id, s.channel_title, s.thumbnail_url, s.category,
-                   v.video_id, v.title, v.published_at, v.thumbnail_url, v.ai_summary
+                   v.video_id, v.title, v.published_at, v.thumbnail_url, v.ai_summary,
+                   s.subscribed_at
             FROM subscriptions s
             LEFT JOIN ({video_subquery}) v ON v.subscription_id = s.id AND v.rn <= 5
             WHERE s.user_id = ?
@@ -91,7 +92,8 @@ def get_subscriptions(user_id: int = Depends(get_current_user), category: str = 
         cur.execute(
             f"""
             SELECT s.id, s.channel_id, s.channel_title, s.thumbnail_url, s.category,
-                   v.video_id, v.title, v.published_at, v.thumbnail_url, v.ai_summary
+                   v.video_id, v.title, v.published_at, v.thumbnail_url, v.ai_summary,
+                   s.subscribed_at
             FROM subscriptions s
             LEFT JOIN ({video_subquery}) v ON v.subscription_id = s.id AND v.rn <= 5
             WHERE s.user_id = ? AND (s.category = ? OR s.category LIKE ?)
@@ -113,6 +115,7 @@ def get_subscriptions(user_id: int = Depends(get_current_user), category: str = 
                 "channel_title": row[2],
                 "thumbnail_url": row[3],
                 "category": row[4],
+                "subscribed_at": row[10] if len(row) > 10 else None,
                 "videos": [],
             }
         if row[5]:  # video_id가 있을 때만 추가
@@ -168,23 +171,22 @@ def sync_subscriptions(user_id: int = Depends(get_current_user), db=Depends(data
 
         if existing:
             sub_id, current_category = existing[0], existing[1]
-            # Gemini가 유의미한 카테고리를 반환한 경우에만 덮어씀
             update_category = new_category if new_category else current_category
             cur.execute(
                 """
                 UPDATE subscriptions
-                SET channel_title = ?, channel_description = ?, thumbnail_url = ?, category = ?
+                SET channel_title = ?, channel_description = ?, thumbnail_url = ?, category = ?, subscribed_at = ?
                 WHERE id = ?
                 """,
-                (sub["title"], sub["description"], sub["thumbnail_url"], update_category, sub_id),
+                (sub["title"], sub["description"], sub["thumbnail_url"], update_category, sub.get("subscribed_at"), sub_id),
             )
         else:
             cur.execute(
                 """
-                INSERT INTO subscriptions (user_id, channel_id, channel_title, channel_description, thumbnail_url, category)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO subscriptions (user_id, channel_id, channel_title, channel_description, thumbnail_url, category, subscribed_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (u_id, sub["channel_id"], sub["title"], sub["description"], sub["thumbnail_url"], new_category or "Uncategorized"),
+                (u_id, sub["channel_id"], sub["title"], sub["description"], sub["thumbnail_url"], new_category or "Uncategorized", sub.get("subscribed_at")),
             )
 
     db.commit()
@@ -275,3 +277,33 @@ def summarize_recent(channel_id: str, user_id: int = Depends(get_current_user), 
 
     db.commit()
     return {"status": "success", "summary": summary_text, "videos": videos}
+
+
+@router.delete("/subscriptions/{channel_id}")
+def delete_subscription(channel_id: str, user_id: int = Depends(get_current_user), db=Depends(database.get_db)):
+    """채널 구독 취소: YouTube API 호출 + 로컬 DB 삭제"""
+    cur = db.cursor()
+    user_row = get_user_row(cur, user_id)
+    if not user_row or not user_row[1]:
+        raise HTTPException(status_code=400, detail="User not found or missing credentials.")
+
+    u_id, access_token, refresh_token = user_row
+
+    cur.execute("SELECT id FROM subscriptions WHERE user_id = ? AND channel_id = ?", (u_id, channel_id))
+    sub_row = cur.fetchone()
+    if not sub_row:
+        raise HTTPException(status_code=404, detail="Subscription not found.")
+    sub_id = sub_row[0]
+
+    creds = build_credentials(access_token, refresh_token)
+    youtube_service = YouTubeService(credentials=creds)
+    try:
+        youtube_service.unsubscribe_channel(channel_id)
+    except Exception as e:
+        logger.error("YouTube 구독 취소 실패 채널 %s: %s", channel_id, e)
+        raise HTTPException(status_code=502, detail="YouTube 구독 취소 실패.")
+
+    cur.execute("DELETE FROM videos WHERE subscription_id = ?", (sub_id,))
+    cur.execute("DELETE FROM subscriptions WHERE id = ?", (sub_id,))
+    db.commit()
+    return {"status": "success", "channel_id": channel_id}
