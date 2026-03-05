@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { Youtube, LogOut, LayoutDashboard, VideoIcon, RefreshCw, AlertCircle } from "lucide-react";
 
@@ -159,10 +160,12 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-3">
-              <img
+              <Image
                 src={session?.user?.image || `https://ui-avatars.com/api/?name=${session?.user?.name}`}
                 alt="프로필"
-                className="w-8 h-8 rounded-full border border-border"
+                width={32}
+                height={32}
+                className="rounded-full border border-border"
               />
               <span className="text-sm font-medium hidden sm:block">{session?.user?.name}</span>
             </div>
@@ -271,9 +274,11 @@ export default function Home() {
                       {/* 채널 헤더 */}
                       <div className="flex items-center gap-3 mb-3">
                         {sub.thumbnail_url ? (
-                          <img
+                          <Image
                             src={sub.thumbnail_url}
                             alt={sub.channel_title}
+                            width={36}
+                            height={36}
                             className="w-9 h-9 rounded-full border border-border"
                           />
                         ) : (
@@ -296,12 +301,13 @@ export default function Home() {
                         <div className="space-y-4 pl-12">
                           {sub.videos.map((video) => (
                             <div key={video.video_id} className="flex gap-3">
-                              <div className="w-32 h-18 bg-muted rounded-md flex-shrink-0 overflow-hidden">
+                              <div className="relative w-32 h-[72px] bg-muted rounded-md flex-shrink-0 overflow-hidden">
                                 {video.thumbnail_url && (
-                                  <img
+                                  <Image
                                     src={video.thumbnail_url}
                                     alt={video.title}
-                                    className="w-full h-full object-cover"
+                                    fill
+                                    className="object-cover"
                                   />
                                 )}
                               </div>
