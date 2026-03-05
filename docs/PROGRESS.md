@@ -2,6 +2,23 @@
 
 ---
 
+## 2026-03-06 (세션 3)
+
+### 완료 작업
+
+#### 기능 추가
+| 작업 | 파일 | 커밋 |
+|------|------|------|
+| 구독취소 버튼 UI (채널 헤더 우측) | `frontend/src/app/page.tsx` | `3912a7b` |
+| 구독 신청일 표시 (구독일: MM월 DD일) | `frontend/src/app/page.tsx` | `3912a7b` |
+| DELETE /api/youtube/subscriptions/{channel_id} | `backend/routers/youtube.py` | `3912a7b` |
+| YouTube API 구독 취소 (unsubscribe_channel) | `backend/services/youtube.py` | `3912a7b` |
+| Next.js 프록시: [channel_id]/route.ts | `frontend/src/app/api/youtube/subscriptions/` | `3912a7b` |
+| DB subscribed_at 컬럼 + 마이그레이션 | `backend/database.py` | `3912a7b` |
+| OAuth 스코프: youtube.readonly → youtube | `frontend/src/app/api/auth/[...nextauth]/route.ts` | `3912a7b` |
+
+---
+
 ## 2026-03-06 (세션 2)
 
 ### 완료 작업
@@ -58,14 +75,16 @@
 
 ---
 
-## 현재 상태 (2026-03-06 기준)
+## 현재 상태 (2026-03-06 세션 3 기준)
 
 ### 작동 중
-- Google OAuth 로그인
+- Google OAuth 로그인 (youtube 스코프)
 - 구독 동기화 + AI 카테고리 분류
 - 최근 3일 영상 자동 수집
-- 계층형 카테고리 사이드바
-- 채널 수 표시 / 채널 YouTube 링크
+- 계층형 카테고리 사이드바 (구독 수 표시)
+- 채널명 클릭 → YouTube 채널 새 탭
+- 채널 구독취소 (YouTube API + DB 동시 삭제)
+- 구독 신청일 표시
 
 ### 미완성
 - [ ] ai_summary 자동 생성 (현재 summarize-recent 수동 호출)

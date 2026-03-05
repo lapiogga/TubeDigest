@@ -4,6 +4,22 @@
 
 ---
 
+## [0.4.0] - 2026-03-06
+
+### 추가
+- 채널 헤더에 **구독취소** 버튼 추가 (YouTube API 실제 구독 취소 + 로컬 DB 삭제)
+- 채널 헤더에 **구독 신청일** 표시 (`구독일: MM월 DD일`)
+- `subscriptions` 테이블에 `subscribed_at DATETIME` 컬럼 추가 (자동 마이그레이션)
+- `DELETE /api/youtube/subscriptions/{channel_id}` 백엔드 엔드포인트 신규
+- Next.js 프록시 라우트 `[channel_id]/route.ts` 신규
+
+### 변경
+- OAuth 스코프: `youtube.readonly` → `youtube` (구독 취소 권한 필요)
+- 구독 동기화 시 `subscribed_at` (YouTube 구독 시각) 저장
+- 구독 목록 API 응답에 `subscribed_at` 필드 포함
+
+---
+
 ## [0.3.0] - 2026-03-06
 
 ### 추가

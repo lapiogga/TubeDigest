@@ -94,6 +94,7 @@ videos         -- id, subscription_id, video_id, title, description,
 | GET | `/api/youtube/subscriptions?category=` | 구독 채널 + 최근 3일 영상 반환 |
 | POST | `/api/youtube/sync-subscriptions` | 구독 동기화 + Gemini 분류 + 3일 영상 저장 |
 | POST | `/api/youtube/summarize-recent?channel_id=` | 특정 채널 최근 7일 영상 요약 (Gemini) |
+| DELETE | `/api/youtube/subscriptions/{channel_id}` | YouTube 구독 취소 + DB 삭제 |
 
 ### Gemini 서비스
 
@@ -140,6 +141,8 @@ NEXTAUTH_SYNC_SECRET=
 2. NextAuth `jwt` 콜백 → `/api/auth/sync` 호출 → `backendToken` 획득
 3. `backendToken`은 JWT에만 저장 (클라이언트 session 미노출)
 4. API 요청: Next.js 서버사이드 프록시 경유 → `getToken()`으로 backendToken 추가
+
+> OAuth 스코프: `youtube` (읽기 + 구독 취소 권한). 스코프 변경 후 기존 사용자는 재로그인 필요.
 
 ### 주요 UI 구성
 
