@@ -239,9 +239,14 @@ export default function Home() {
                     const hasChildren = children.length > 0;
                     const isExpanded = expandedParents.has(parent);
 
+                    const visibleChildren = hasChildren
+                      ? children.filter((c) => (categoryCounts[c] ?? 0) > 0)
+                      : [];
                     const parentCount = hasChildren
-                      ? children.reduce((sum, c) => sum + (categoryCounts[c] ?? 0), 0)
+                      ? visibleChildren.reduce((sum, c) => sum + (categoryCounts[c] ?? 0), 0)
                       : (categoryCounts[parent] ?? 0);
+
+                    if (parentCount === 0) return null;
 
                     if (!hasChildren) {
                       // 단독 리프 카테고리
@@ -296,7 +301,7 @@ export default function Home() {
                         {/* 자식 목록 */}
                         {isExpanded && (
                           <ul className="mt-0.5 ml-2 pl-2 border-l border-border">
-                            {children.map((child) => {
+                            {visibleChildren.map((child) => {
                               const label = child.split(" > ").slice(1).join(" > ");
                               const count = categoryCounts[child] ?? 0;
                               return (
